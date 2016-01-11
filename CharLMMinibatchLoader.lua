@@ -3,20 +3,17 @@
 require 'torch'
 require 'math'
 
-local class = require 'class'
-local CharLMMinibatchLoader = class('CharLMMinibatchLoader')
+local CharLMMinibatchLoader = {}
+CharLMMinibatchLoader.__index = CharLMMinibatchLoader
 
-function CharLMMinibatchLoader:__init(tensor_file, vocab_file, batch_size, seq_length)
+function CharLMMinibatchLoader.create(tensor_file, vocab_file, batch_size, seq_length)
+    local self = {}
+    setmetatable(self, CharLMMinibatchLoader)
 
     -- construct a tensor with all the data
     print('loading data files...')
     local data = torch.load(tensor_file)
     self.vocab_mapping = torch.load(vocab_file)
-
-    self.number_mapping = {}
-    for key,value in pairs(self.vocab_mapping) do
-        self.number_mapping[value] = key
-    end
 
     -- cut off the end so that it divides evenly
     local len = data:size(1)
@@ -102,35 +99,6 @@ function CharLMMinibatchLoader:next_batch()
     self.current_batch = (self.current_batch % self.nbatches) + 1
     self.evaluated_batches = self.evaluated_batches + 1
     return self.x_batches[self.current_batch], self.y_batches[self.current_batch]
-end
-
-function CharLMMinibatchLoader:vectorize(key)
-    local vector = torch.zeros(self.vocab_size)
-    vector[key] = 1
-    return vector
-end
-
-function CharLMMinibatchLoader:scalarize(vector)
-    local _, key = torch.max(vector, 1)
-    return key
-end
-
-function CharLMMinibatchLoader:decode_outputs(outputs)
-    local string = ''
-    for i = 1, #outputs do
-        local key = torch.squeeze(self:scalarize(outputs[i])) -- tensor1 to scalar
-        string = string .. self.number_mapping[key]
-    end
-    return string
-end
-
-function CharLMMinibatchLoader:decode_batch(batch)
-    local string = ''
-    for i = 1, self.seq_length do
-        local key = batch[{1,i}]
-        string = string .. self.number_mapping[key]
-    end  
-    return string
 end
 
 return CharLMMinibatchLoader
